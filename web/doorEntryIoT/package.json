@@ -1,0 +1,17 @@
+{
+  "name": "DoorEntryIoT",
+  "version": "1.0.0",
+  "description": "Door Entry IoT",
+  "main": "doorEntryIoT.js",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.51.0",
+	"uuid": "^8.3.2",
+    "ws": "^7.4.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Zak Kemble",
+  "license": ""
+}

@@ -8,30 +8,29 @@
 
 // Deals with logging and HTTP/websocket server
 
+import http from "http";
+import util from "util";
+import { WebSocketServer } from "ws";
+import { v4 as uuidV4, validate as uuidValidate } from "uuid";
 
-const http = require("http");
-const WebSocket = require("ws");
-const util = require("util");
-const uuid = require("uuid");
+let clientId = 0;
+let sessions = {};
 
-var clientId = 0;
-var sessions = {};
+let onSession = null;
+let onSessionEnd = null
+let onMessage = null;
+let onClose = null;
+let onError = null;
 
-var onSession = null;
-var onSessionEnd = null
-var onMessage = null;
-var onClose = null;
-var onError = null;
+let serverId = "";
 
-var serverId = "";
-
-const wss = new WebSocket.Server({
+const wss = new WebSocketServer({
 	noServer: true,
 	maxPayload: 1024
 });
 
-const aliveInterval = setInterval(function(){
-	wss.clients.forEach(function(ws) {
+const aliveInterval = setInterval(() => {
+	wss.clients.forEach((ws) => {
 		if (ws.isAlive === false)
 		{
 			consoleLog("Heartbeat lost, terminating... %s %d", ws.ip, ws.clientId);
@@ -41,7 +40,7 @@ const aliveInterval = setInterval(function(){
 			ws.isAlive = false;
 	});
 
-	Object.keys(sessions).forEach(function(key, index){
+	Object.keys(sessions).forEach((key, index) => {
 		if(Date.now() - sessions[key].lastseen > 600000) // 10 min
 		{
 			if(onSessionEnd !== null)
@@ -51,7 +50,7 @@ const aliveInterval = setInterval(function(){
 		else
 		{
 			// Clear data for old requests that were never replied to
-			Object.keys(sessions[key].requests).forEach(function(key2, index2){
+			Object.keys(sessions[key].requests).forEach((key2, index2) => {
 				if(Date.now() - sessions[key].requests[key2].time > 60000) // 1 min
 					delete sessions[key].requests[key2];
 			});
@@ -61,8 +60,8 @@ const aliveInterval = setInterval(function(){
 
 function formatFullDateTime()
 {
-	var d = new Date();
-	var dateStr = util.format(
+	const d = new Date();
+	const dateStr = util.format(
 		"%d-%s-%s %s:%s:%s",
 		d.getFullYear(),
 		String(d.getMonth()+1).padStart(2, "0"),
@@ -108,7 +107,7 @@ function start(config)
 	onClose = config.onClose;
 	onError = config.onError;
 	
-	serverId = uuid.v4();
+	serverId = uuidV4();
 
 	const authinfo = {
 		user: config.auth.user,
@@ -118,17 +117,17 @@ function start(config)
 	function authenticate(request, callback)
 	{
 		consoleLog(request.headers);
-		var auth = Buffer.from(authinfo.user + ":" + authinfo.pass).toString("base64");
+		const auth = Buffer.from(authinfo.user + ":" + authinfo.pass).toString("base64");
 		callback(request.headers.authorization === ("Basic " + auth));
 	}
 
-	const server = http.createServer(function(request, response){
+	const server = http.createServer((request, response) => {
 		consoleLog("Request from %s for %s", request.connection.remoteAddress, request.url);
 		response.writeHead(404);
 		response.end("404");
 	});
 
-	server.on("upgrade", function upgrade(request, socket, head) {
+	server.on("upgrade", (request, socket, head) => {
 
 		consoleLog("%s Upgrade request", request.socket.remoteAddress);
 
@@ -143,14 +142,14 @@ function start(config)
 
 			consoleLog("%s Upgrade accepted", request.socket.remoteAddress);
 
-			wss.handleUpgrade(request, socket, head, function done(ws) {
+			wss.handleUpgrade(request, socket, head, (ws) => {
 				wss.emit("connection", ws, request);
 			});
 		});
 
 	});
 
-	server.listen(config.http_port, function() {
+	server.listen(config.http_port, () => {
 		consoleLog("Server is listening on port " + config.http_port);
 		if(config.onStart !== null)
 			config.onStart();
@@ -159,7 +158,7 @@ function start(config)
 
 function makeSession()
 {
-	const sessionId = uuid.v4();
+	const sessionId = uuidV4();
 	sessions[sessionId] = {
 		id: sessionId,
 		created: Date.now(),
@@ -171,14 +170,14 @@ function makeSession()
 
 function getSession(sessionId)
 {
-	if(uuid.validate(sessionId) && sessions.hasOwnProperty(sessionId))
+	if(uuidValidate(sessionId) && sessions.hasOwnProperty(sessionId))
 		return sessions[sessionId];
 	return null;
 }
 
 function makeRequest(session)
 {
-	const requestId = uuid.v4();
+	const requestId = uuidV4();
 	session.requests[requestId] = {
 		id: requestId,
 		time: Date.now(),
@@ -189,8 +188,8 @@ function makeRequest(session)
 
 function getRequest(session, requestId)
 {
-	var request = null;
-	if(uuid.validate(requestId) && session.requests.hasOwnProperty(requestId))
+	let request = null;
+	if(uuidValidate(requestId) && session.requests.hasOwnProperty(requestId))
 	{
 		request = session.requests[requestId];
 		delete session.requests[requestId];
@@ -200,7 +199,7 @@ function getRequest(session, requestId)
 
 function sendAll(object, requestObject)
 {
-	wss.clients.forEach(function each(ws) {
+	wss.clients.forEach((ws) => {
 		if(ws.session === null)
 			return;
 
@@ -222,7 +221,7 @@ function send(ws, object)
 
 // WebSocket
 // This part receives messages from intercom notifiers and tells the TG bot to send messages to the group chat
-wss.on("connection", function connection(ws, request) {
+wss.on("connection", (ws, request) => {
 
 	ws.ip = request.headers.hasOwnProperty("x-real-ip") ? request.headers["x-real-ip"] : request.socket.remoteAddress;
 	ws.isAlive = true;
@@ -232,10 +231,10 @@ wss.on("connection", function connection(ws, request) {
 
 	consoleLog("%s Connection accepted, client ID: %d", ws.ip, ws.clientId);
 
-	ws.on("message", function message(msg) {
+	ws.on("message", (msg) => {
 		consoleLog("%d Received message: %s", ws.clientId, msg);
 
-		var object = null;
+		let object = null;
 		try
 		{
 			object = JSON.parse(msg);
@@ -254,7 +253,7 @@ wss.on("connection", function connection(ws, request) {
 			{
 				if(ws.session === null)
 				{
-					var isNew = false;
+					let isNew = false;
 					ws.session = getSession(object.session);
 					if(ws.session === null) // Session not found, make new session (new connection)
 					{
@@ -283,7 +282,7 @@ wss.on("connection", function connection(ws, request) {
 					if(ws.session.id === object.session)
 					{
 						ws.session.lastseen = Date.now();
-						var requestData = getRequest(ws.session, object.requestId);
+						const requestData = getRequest(ws.session, object.requestId);
 						if(onMessage !== null)
 							onMessage(ws, object, requestData);
 					}
@@ -303,13 +302,13 @@ wss.on("connection", function connection(ws, request) {
 		}
 	});
 
-	ws.on("close", function close(code, reason) {
+	ws.on("close", (code, reason) => {
 		consoleLog("%d Disconnected (%d) (%s)", ws.clientId, code, reason);
 		if(onClose !== null)
 			onClose(ws, code, reason);
 	});
 
-	ws.on("ping", function ping(data) {
+	ws.on("ping", (data) => {
 		//consoleLog('%d Pinged', ws.clientId);
 		ws.isAlive = true;
 		if(ws.session !== null)
@@ -317,7 +316,7 @@ wss.on("connection", function connection(ws, request) {
 	});
 });
 
-module.exports = {
+export default {
 	formatFullDateTime,
 	consoleLog,
 	consoleError,

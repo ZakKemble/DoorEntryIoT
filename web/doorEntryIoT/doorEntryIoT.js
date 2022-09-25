@@ -8,25 +8,25 @@
  * Web: https://blog.zakkemble.net/iot-and-a-door-entry-system/
  */
 
-// https://github.com/yagop/node-telegram-bot-api/issues/319
-process.env.NTBA_FIX_319 = 1;
-
 // https://www.npmjs.com/package/websocket
 // https://www.sohamkamani.com/blog/2016/09/21/making-a-telegram-bot/
 // https://github.com/yagop/node-telegram-bot-api
 // https://github.com/websockets/ws/blob/master/doc/ws.md
 
-const config = require('./config');
-const fs = require('fs');
-const http = require("http");
-const TelegramBot = require("node-telegram-bot-api");
-const util = require("util");
-const stuff = require("./stuff");
 
-var whitelist = null;
+import dotenv from "dotenv";
+dotenv.config();
+
+import http from "http";
+import TelegramBot from "node-telegram-bot-api";
+import { readFileSync, writeFile } from "fs";
+import util from "util";
+import stuff from "./stuff.js";
+
+let whitelist = null;
 try
 {
-	const data = fs.readFileSync("./whitelist.json");
+	const data = readFileSync("./whitelist.json");
 	whitelist = JSON.parse(data);
 }
 catch (err)
@@ -41,32 +41,32 @@ catch (err)
 }
 stuff.consoleLog(whitelist);
 
-const bot = new TelegramBot(config.TG_TOKEN, {polling: true});
-var autoUnlockTimer = null;
+const bot = new TelegramBot(process.env.TG_TOKEN, {polling: true});
+let autoUnlockTimer = null;
 
 
 stuff.start({
-	onStart: function(){
+	onStart: () => {
 		sendGroupMessage("\u{1F6A8} *Door entry bot server online*");
 	},
-	onSession: function(ws, object, isNew){
+	onSession: (ws, object, isNew) => {
 		sendGroupMessage(util.format("\u{1F64C} *Intercom %sconnected* (\#%d %s)", ((isNew == true) ? "" : "re"), ws.clientId, ws.session.id));
 	},
-	onSessionEnd: function(session){
+	onSessionEnd: (session) => {
 		sendGroupMessage(util.format("DEBUG: Session timeout %s", session.id));
 	},
 	onMessage: onMessage,
-	onClose: function(ws, code, reason){
+	onClose: (ws, code, reason) => {
 		sendGroupMessage(util.format("DEBUG: Intercom disconnected (\#%d %d)", ws.clientId, code));
 	},
-	onError: function(msg){
+	onError: (msg) => {
 		sendGroupMessage(msg, {});
 	},
 	auth: {
-		user: config.AUTH_USER,
-		pass: config.AUTH_PASS
+		user: process.env.AUTH_USER,
+		pass: process.env.AUTH_PASS
 	},
-	http_port: config.HTTP_PORT
+	http_port: process.env.HTTP_PORT
 });
 
 function doorUnlock(name, isAutoUnlock = false)
@@ -74,7 +74,7 @@ function doorUnlock(name, isAutoUnlock = false)
 	stuff.sendAll(
 		{
 			action: "unlock",
-			duration: config.UNLOCK_DURATION
+			duration: process.env.UNLOCK_DURATION
 		},
 		{
 			name: name,
@@ -85,7 +85,7 @@ function doorUnlock(name, isAutoUnlock = false)
 
 function sendGroupMessage(message, opts = {parse_mode: "markdown"})
 {
-	bot.sendMessage(config.TG_CHATID, message, opts);
+	bot.sendMessage(process.env.TG_CHATID, message, opts);
 }
 
 function onMessage(ws, object, request)
@@ -118,13 +118,13 @@ function onMessage(ws, object, request)
 				}
 			};
 
-			var message = "\u{1F6AA} *Someone is at the door!*";
+			const message = "\u{1F6AA} *Someone is at the door!*";
 			sendGroupMessage(message, opts);
 		}
 	}
 	else if(object.notify === "unlocked")
 	{
-		var msg;
+		let msg;
 		if(request === null)
 			msg = "\u{1F513} *(Unknown) unlocked the door!*"
 		else if(request.data.isAutoUnlock)
@@ -211,7 +211,7 @@ function onMessage(ws, object, request)
 
 // Handle callback queries
 // This handles inline keyboard presses from the group chat
-bot.on("callback_query", function onCallbackQuery(callbackQuery) {
+bot.on("callback_query", (callbackQuery) => {
 	const action = callbackQuery.data;
 	const msg = callbackQuery.message;
 	stuff.consoleLog(callbackQuery);
@@ -232,7 +232,7 @@ bot.on("callback_query", function onCallbackQuery(callbackQuery) {
 		
 		if(action === "unlock")
 		{
-			var message = util.format("\u{1F6AA} *Someone is at the door!* (%s Unlocked)", callbackQuery.from.first_name);
+			const message = util.format("\u{1F6AA} *Someone is at the door!* (%s Unlocked)", callbackQuery.from.first_name);
 
 			const opts = {
 				chat_id: msg.chat.id,
@@ -271,7 +271,7 @@ bot.on("callback_query", function onCallbackQuery(callbackQuery) {
 });
 
 // This handles TG bot receiving direct messages
-bot.on("text", function(message) {
+bot.on("text", (message) => {
 
 	stuff.consoleLog(message);
 	
@@ -284,7 +284,7 @@ bot.on("text", function(message) {
 	const isDM = (message.chat.type == "private");
 	const msg = message.text.toLowerCase().split("@")[0]; // Split removes stuff after the first @ symbol
 
-	const secret = msg.includes(config.WHITELIST_PASS);
+	const secret = msg.includes(process.env.WHITELIST_PASS);
 	if(secret)
 		bot.sendMessage(chatId, "Accepted!", {});
 
@@ -304,10 +304,10 @@ bot.on("text", function(message) {
 				"name": name,
 				"added": stuff.formatFullDateTime()
 			};
-			var data = JSON.stringify(whitelist);
+			const data = JSON.stringify(whitelist);
 			
 			// TODO this is async, should wait for the promise to resolve before writing again
-			fs.writeFile("./whitelist.json", data, function(err){
+			writeFile("./whitelist.json", data, (err) => {
 				if(err)
 					consoleError(err.message);
 			});
@@ -355,10 +355,10 @@ bot.on("text", function(message) {
 		sendGroupMessage(util.format("Auto-unlock enabled by %s for 5 minutes", name), {});
 
 		clearTimeout(autoUnlockTimer);
-		autoUnlockTimer = setTimeout(function(){
+		autoUnlockTimer = setTimeout(() => {
 			autoUnlockTimer = null;
 			sendGroupMessage("Auto-unlock timer expired", {});
-		}, config.AUTOUNLOCK_TIME);
+		}, process.env.AUTOUNLOCK_TIME);
 	}
 	else if(msg === "status")
 	{
@@ -368,14 +368,14 @@ bot.on("text", function(message) {
 		bot.sendMessage(chatId, "OwO", opts);
 });
 
-bot.on("sticker", function(message) {
+bot.on("sticker", (message) => {
 	stuff.consoleLog(message);
 });
 
-bot.on("polling_error", function(error) {
+bot.on("polling_error", (error) => {
 	stuff.consoleError(error)
 });
 
-bot.on("webhook_error", function(error) {
+bot.on("webhook_error", (error) => {
 	stuff.consoleError(error)
 });

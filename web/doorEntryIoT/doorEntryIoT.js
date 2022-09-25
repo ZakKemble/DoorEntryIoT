@@ -309,7 +309,7 @@ bot.on("text", (message) => {
 			// TODO this is async, should wait for the promise to resolve before writing again
 			writeFile("./whitelist.json", data, (err) => {
 				if(err)
-					consoleError(err.message);
+					stuff.consoleError(err.message);
 			});
 			
 			sendGroupMessage(util.format("New user registered: %s", name), {});

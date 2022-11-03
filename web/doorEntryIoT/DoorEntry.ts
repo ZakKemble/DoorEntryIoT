@@ -80,17 +80,13 @@ export namespace DoorEntry
 
 		getRequest(id: string)
 		{
-			let request = null;
-			if(uuidValidate(id) && this.requests.has(id))
-			{
-				request = this.requests.get(id);
-				this.requests.delete(id);
-			}
+			const request = this.requests.get(id);
+			this.requests.delete(id);
 			return request;
 		}
 	}
 
-	class Sessions extends EventEmitter
+	class SessionManager extends EventEmitter
 	{
 		sessions: Map<string, Session> = new Map();
 		timeoutInterval = setInterval(() => {
@@ -120,9 +116,7 @@ export namespace DoorEntry
 		
 		find(id: string)
 		{
-			if(uuidValidate(id))
-				return this.sessions.get(id);
-			return undefined;
+			return this.sessions.get(id);
 		}
 	
 		make()
@@ -154,19 +148,18 @@ export namespace DoorEntry
 		serverId: string = "";
 		isAlive: boolean = true;
 		session: Session | null = null;
-		//private onNotification: Function | null = null;
 	
 		alive()
 		{
 			this.isAlive = true;
 		}
 
-		message(msg: DoorEntry.IMessage, request: Request | null | undefined)
+		onMessage(msg: DoorEntry.IMessage, request: Request | undefined)
 		{
 			this.emit(NotificationsAll.includes(msg.notify) ? msg.notify : "unknown", msg, request);
 		}
 
-		open(duration: number, serverData: any)
+		unlock(duration: number, serverData: any)
 		{
 			const request = this.session?.makeRequest(serverData);
 			if(request)
@@ -182,14 +175,13 @@ export namespace DoorEntry
 		send(data: IAction)
 		{
 			data.serverId = this.serverId;
-			const json = JSON.stringify(data);
-			super.send(json);
+			super.send(JSON.stringify(data));
 		}
 	}
 
 	export class Server extends WebSocketServer
 	{
-		sessions: Sessions = new Sessions();
+		sessionManager: SessionManager = new SessionManager();
 		clientId: number = 0;
 		serverId: string;
 		aliveInterval = setInterval(() => {
@@ -204,7 +196,7 @@ export namespace DoorEntry
 				WebSocket: Device
 			});
 
-			this.sessions.on("timeout", (sess) => {
+			this.sessionManager.on("timeout", (sess) => {
 				this.emit("timeout", sess);
 			});
 
@@ -241,8 +233,6 @@ export namespace DoorEntry
 				this.emit("start", server);
 			});
 
-			// WebSocket
-			// This part receives messages from intercom notifiers and tells the TG bot to send messages to the group chat
 			this.on("connection", (ws, request) => {
 
 				const doorEntry = ws as Device;
@@ -272,7 +262,7 @@ export namespace DoorEntry
 						const isNewConnection = (doorEntry.session == null);
 
 						if(isNewConnection)
-							doorEntry.session = this.sessions.find(message.session) ?? this.sessions.make();
+							doorEntry.session = this.sessionManager.find(message.session) ?? this.sessionManager.make();
 
 						doorEntry.send({
 							action: "session",
@@ -285,7 +275,7 @@ export namespace DoorEntry
 					{
 						doorEntry.session.seen();
 						const requestData = doorEntry.session.getRequest(message.requestId);
-						doorEntry.message(message, requestData);
+						doorEntry.onMessage(message, requestData);
 					}
 					else
 					{
@@ -317,23 +307,19 @@ export namespace DoorEntry
 		{
 			this.clients.forEach((ws) => {
 				const doorEntry = ws as Device;
-		
 				if (!doorEntry.isAlive)
 				{
 					logger.info("Heartbeat lost, terminating... %s %d", doorEntry.ip, doorEntry.clientId);
 					doorEntry.terminate();
 				}
-				else
-					doorEntry.isAlive = false;
+				doorEntry.isAlive = false;
 			});
 		}
 
 		sendAll(clientData: IAction, serverData: any)
 		{
 			this.clients.forEach((ws) => {
-
 				const doorEntry = ws as Device;
-
 				const request = doorEntry.session?.makeRequest(serverData);
 				if(request)
 				{

@@ -54,7 +54,7 @@ class Timer
 		this.isActive = true;
 	}
 
-	active()
+	get active()
 	{
 		return this.isActive;
 	}
@@ -114,7 +114,7 @@ function doorUnlock(name: string, isAutoUnlock = false)
 	};
 
 	svr.clients.forEach((ws) => {
-		(ws as DoorEntry.Device).open(+process.env.UNLOCK_DURATION!, serverData);
+		(ws as DoorEntry.Device).unlock(+process.env.UNLOCK_DURATION!, serverData);
 	});
 }
 
@@ -136,7 +136,7 @@ svr.on("device", (dev: DoorEntry.Device, isNewConnection: boolean) => {
 	sendGroupMessage(util.format("\u{1F64C} *Intercom %sconnected* (\#%d %s)", (isNewConnection ? "" : "re"), dev.clientId, dev.session?.id ?? "-"));
 
 	dev.on("ring", (object: DoorEntry.IMessage, request: DoorEntry.Request) => {
-		if(autoUnlockTimer.active())
+		if(autoUnlockTimer.active)
 		{
 			autoUnlockTimer.stop();
 			//sendGroupMessage("\u{1F513} *Door auto-unlocked*");

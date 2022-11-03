@@ -1,0 +1,14 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Launch Program",
+			"type": "node",
+			"request": "launch",
+			"args": ["app.ts"],
+			"runtimeArgs": ["--nolazy", "--inspect", "-r", "ts-node/register"],
+			"sourceMaps": true,
+			"cwd": "${workspaceRoot}"
+		}
+	]
+}

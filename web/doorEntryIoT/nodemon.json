@@ -1,6 +1,0 @@
-{
-	"watch": ["./"],
-	"ext": "ts,js,json",
-	"ignore": ["dist/", "node_modules/", "test/"],
-	"exec": "node ./doorEntryIoT.js"
-}

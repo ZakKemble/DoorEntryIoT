@@ -2,22 +2,27 @@
   "name": "doorentryiot",
   "version": "1.0.0",
   "description": "Door Entry IoT",
-  "main": "doorEntryIoT.js",
-  "type": "module",
+  "main": "./dist/app.js",
   "dependencies": {
     "dotenv": "^16.0.2",
     "node-telegram-bot-api": "^0.59.0",
+    "ts-node": "^10.9.1",
     "uuid": "^9.0.0",
     "ws": "^8.9.0"
   },
   "scripts": {
-    "start": "node doorEntryIoT.js",
-    "dev": "npx nodemon",
+    "start": "node ./dist/app.js",
+    "dev": "npx ts-node app.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Zak Kemble",
   "license": "",
   "devDependencies": {
-    "nodemon": "^2.0.20"
+    "@types/node": "^18.11.9",
+    "@types/node-telegram-bot-api": "^0.57.1",
+    "@types/uuid": "^8.3.4",
+    "@types/ws": "^8.5.3",
+    "nodemon": "^2.0.20",
+    "typescript": "^4.8.4"
   }
 }
